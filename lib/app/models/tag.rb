@@ -7,6 +7,7 @@ class Tag
   
   ensure_index :user_id
   ensure_index :taggable_id
+  ensure_index :word
   
   belongs_to :user
   
@@ -22,10 +23,15 @@ class Tag
   
   # == Various Class Methods
   
+  # takes a string and produces an array of words from the db that are 'like' this one
+  # great for those oh-so-fancy autocomplete/suggestion text fields
+  def self.like(string)
+    collection.distinct(:word, {'word' => /^#{string}.+/})
+  end
+    
   # TO DO this can probably be rewritten to do limits and such in the query
   def self.all_with_counts(limit = nil)
-    coll = MongoMapper.database['tags']
-    tags = coll.group(['word'], nil, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
+    tags = @coll.group(['word'], nil, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
     counts = tags.map{|t| [t['word'], t['count']]}
     set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
     limit.nil? ? set : set[0,limit]
@@ -48,3 +54,8 @@ class Tag
     doc
   end
 end
+
+# not really sure why MM's ensure_index() calls above don't work for this plugin, but I was having trouble, so...
+MongoMapper.database['tags'].create_index("word")
+MongoMapper.database['tags'].create_index("user_id")
+MongoMapper.database['tags'].create_index("taggable_id")
