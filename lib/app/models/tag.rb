@@ -11,7 +11,7 @@ class Tag
   belongs_to :user
   
   # this will be helpful for a tag cloud of the most common tags
-  @@top_25 = []
+  @@top_25 = nil
   
   after_save :update_top_25
   after_destroy :update_top_25
@@ -32,12 +32,7 @@ class Tag
   end
   
   def self.top_25
-    if @@top_25.empty?
-      @@top_25 = all_with_counts(25)
-      @@top_25
-    else
-      @@top_25
-    end
+    @@top_25 ||= all_with_counts(25)
   end
   
   
