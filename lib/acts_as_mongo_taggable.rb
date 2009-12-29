@@ -6,7 +6,7 @@ module ActsAsMongoTaggable
   module InstanceMethods
     
     def delete_all_tags
-      Tag.delete_all(:id => taggings)
+      Tag.destroy_all(:id => taggings)
       taggings = []
       save!
     end
@@ -51,7 +51,7 @@ module ActsAsMongoTaggable
   def delete_tags_by_user(user)
     return false unless user
     return 0 if tags.blank?
-    Tag.delete_all(:id => tag_ids_by_user(user))
+    Tag.destroy_all(:id => tag_ids_by_user(user))
     taggings = tag_ids_except_user(user)
     save!
     reload
