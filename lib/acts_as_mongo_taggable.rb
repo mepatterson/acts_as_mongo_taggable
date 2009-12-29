@@ -76,7 +76,7 @@ module ActsAsMongoTaggable
   end
   
   # returns my current tag word list; raises exception if user tries to multi-tag with same word
-  def tag!(word_or_words, user = nil)
+  def tag!(word_or_words, user)
     arr_of_words(word_or_words).each do |word|
       raise StandardError if Tag.exists?(_tag_conditions(user, word))
       t = Tag.create(_tag_conditions(user, word))
@@ -87,7 +87,7 @@ module ActsAsMongoTaggable
   end
   
   # tags, but silently ignores if user tries to multi-tag with same word
-  def tag(word_or_words, user = nil)
+  def tag(word_or_words, user)
     arr_of_words(word_or_words).each do |word|
       unless Tag.exists?(_tag_conditions(user, word))
         t = Tag.create(_tag_conditions(user, word))

@@ -10,9 +10,6 @@ class Tag
   ensure_index :word
   
   belongs_to :user
-  
-  after_save :update_top_25
-  after_destroy :update_top_25
     
   # == Various Class Methods
   
