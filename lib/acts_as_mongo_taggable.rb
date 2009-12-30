@@ -7,8 +7,7 @@ module ActsAsMongoTaggable
     
     def delete_all_tags
       Tag.destroy_all(:id => taggings)
-      taggings = []
-      save!
+      update_attributes({ :taggings => [] })
     end
     
     def _tags
@@ -53,7 +52,7 @@ module ActsAsMongoTaggable
     return 0 if tags.blank?
     Tag.destroy_all(:id => tag_ids_by_user(user))
     taggings = tag_ids_except_user(user)
-    save!
+    save
     reload
   end
   
@@ -82,7 +81,7 @@ module ActsAsMongoTaggable
       t = Tag.create(_tag_conditions(user, word))
       taggings << t.id
     end
-    save!
+    save
     tags
   end
   
@@ -94,7 +93,7 @@ module ActsAsMongoTaggable
         taggings << t.id 
       end
     end
-    save!
+    save
     tags
   end
   
