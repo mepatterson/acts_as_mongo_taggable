@@ -98,8 +98,10 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     multi_tag(@widget)
     dongle_owner = create_user "dongle_owner"
     dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
-    multi_tag(dongle)
-    assert_equal [["werewolves", 6], ["frankenstein", 4], ["vampires", 2]], Widget.all_tags_with_counts
+    dongle.tag("werewolves", @m_tagger_1)
+    dongle.tag("werewolves", @m_tagger_2)
+    assert_equal [["werewolves", 3], ["frankenstein", 2], ["vampires", 1]], Widget.all_tags_with_counts
+    assert_equal [["werewolves", 2]], Dongle.all_tags_with_counts
   end
   
   test "most_tagged_with returns the proper widget" do

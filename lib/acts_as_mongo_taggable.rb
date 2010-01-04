@@ -1,10 +1,25 @@
 module ActsAsMongoTaggable
   module ClassMethods
     
+    
+    # cond = klass ? {:taggable_class => klass.to_s} : nil
+    # tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
+    # counts = tags.map{|t| [t['word'], t['count']]}
+    # set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
+    # limit.nil? ? set : set[0,limit]
+    
+    def sorted_tag_counts(tags)
+      counts = tags.map{|t| [t['word'], t['count'].to_i]}
+      counts.sort{|a,b| a[1] <=> b[1]}.reverse
+    end
+    
     def all_tags_with_counts
       counts = Hash.new(0)
-      Tag.all(:select => 'word').collect(&:word).each{|val|counts[val]+=1}
-      counts.sort{|a,b| a[1] <=> b[1]}.reverse
+      tags = Tag.collection.group(['word'], 
+              {:taggable_class => self.to_s}, 
+              {'count' => 0}, 
+              "function(doc, prev) {prev.count += 1}")
+      sorted_tag_counts(tags)
     end
     
     # returns the _first_ widget with this tag, a la ActiveRecord find()
