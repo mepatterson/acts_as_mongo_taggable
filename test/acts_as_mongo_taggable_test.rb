@@ -50,6 +50,73 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     assert_equal 0, @widget.tags.size
     assert_equal 0, dongle.tags.size
   end
+  
+  test "search and find all widgets containing a specified tag" do
+    num_found = Widget.find_all_with_tag('vampires').size
+    assert_equal 0, num_found
+    @widget.tag("vampires", @tagger)
+    num_found = Widget.find_all_with_tag('vampires').size
+    assert_equal 1, num_found
+    dongle_owner = create_user "dongle_owner"
+    dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
+    multi_tag(dongle)
+    num_found = Widget.find_all_with_tag('vampires').size
+    # should only be 1 because we're only searching on Widgets!
+    assert_equal 1, num_found
+  end
+  
+  test "find first widget that matches specified tag" do
+    @widget.tag("vampires", @tagger)
+    dongle_owner = create_user "dongle_owner"
+    dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
+    # should only be 1 because we're only searching on Widgets!
+    assert_equal 1, Widget.find_all_with_tag('vampires').size
+    assert_equal @widget, Widget.find_with_tag('vampires')
+  end
+  
+  test "find_all_with_tag and find_with_tag are case-insensitive" do
+    @widget.tag("VaMpiReS", @tagger)
+    @widget.tag("VAMPIRES", @tagger)
+    assert_equal @widget, Widget.find_with_tag("VampireS")
+    assert_equal 1, Widget.find_all_with_tag("VampireS").size
+  end
+  
+  test "case-sensitive mode" do
+    @widget.tag("VaMpiReS", @tagger, {:case_sensitive => true})
+    assert_equal 0, Widget.find_all_with_tag("vampires").size
+    assert_equal 0, Widget.find_all_with_tag("VaMpiReS").size
+    assert_equal 0, Widget.find_all_with_tag("vampires", {:case_sensitive => true}).size
+    assert_equal 1, Widget.find_all_with_tag("VaMpiReS", {:case_sensitive => true}).size
+  end
+  
+  test "we get an empty array if we ask for all tags with counts and there are none" do
+    assert_equal 0, Tag.count
+    assert_equal [], Widget.all_tags_with_counts
+  end
+  
+  test "we can build an array of tags and counts across an entire tagged object space" do
+    multi_tag(@widget)
+    dongle_owner = create_user "dongle_owner"
+    dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
+    multi_tag(dongle)
+    assert_equal [["werewolves", 6], ["frankenstein", 4], ["vampires", 2]], Widget.all_tags_with_counts
+  end
+  
+  test "most_tagged_with returns the proper widget" do
+    widget_one = @owner.widgets.create({:name => "Test Widget One"})
+    widget_two = @owner.widgets.create({:name => "Test Widget Two"})
+    widget_three = @owner.widgets.create({:name => "Test Widget Three"})
+    load_multiple_taggers
+    #widget one -- worst
+    widget_one.tag("werewolves", @m_tagger_1)
+    #widget two -- best
+    multi_tag(widget_two)
+    #widget three -- middle child
+    widget_three.tag("werewolves", @m_tagger_1)
+    widget_three.tag("werewolves", @m_tagger_2)
+    # now, did it work?
+    assert_equal widget_two, Widget.most_tagged_with('werewolves')
+  end
     
   test "tag is created when project tagged" do
     assert_equal 0, @widget.tags.size
@@ -57,10 +124,17 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     assert_equal 1, @widget.tags.size
   end
   
-  test "tagged_by_user? returns correct value" do
+  test "tagged_by_user? returns true when this object tagged by user" do
     assert ! @widget.tagged_by_user?(@tagger)
     @widget.tag("vampires", @tagger)
     assert @widget.tagged_by_user?(@tagger)
+  end
+  
+  test "tagged_by_user? returns false when this object not tagged but some other object is" do
+    dongle_owner = create_user "dongle_owner"
+    dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
+    dongle.tag("vampires", @tagger)
+    assert ! @widget.tagged_by_user?(@tagger)    
   end
   
   test "tag object can be retrieved after project tagged" do

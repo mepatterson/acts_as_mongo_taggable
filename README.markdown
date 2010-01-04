@@ -44,11 +44,30 @@ To rate it:
 - word_or_words can be a string, a string of comma-delimited words, or an array
 - user is the User who is tagging this widget
 
+Basic search:
+
+    Widget.find_with_tag('vampires')
+
+... will return the first Widget object that has been tagged with that phrase
+
+    Widget.find_all_with_tag('vampires')
+
+... will return an array of Widget objects, all of which have been tagged with that phrase
+
+    Widget.most_tagged_with('vampires')
+    
+... will return the Widget object that has been tagged the most times with that phrase
+
+Making tag clouds:
+
+    Widget.all_tags_with_counts
+    
+... will return a nice array of arrays, a la [["rails", 8],["ruby", 12], ["php", 6], ["java", 2]]
+Use this to make yourself a tag cloud for now. (maybe I'll implement a tag cloud view helper someday.)
+
 
 Future
 ------
-- (very soon!) Add search functions so you can quickly dig up all Widgets with tag "foo"
-- (very soon!) Add some stats methods to the Tag class, so we can make tag clouds and such
 - Performance improvements as I come across the need
 
 
