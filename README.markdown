@@ -65,6 +65,16 @@ Making tag clouds:
 ... will return a nice array of arrays, a la [["rails", 8],["ruby", 12], ["php", 6], ["java", 2]]
 Use this to make yourself a tag cloud for now. (maybe I'll implement a tag cloud view helper someday.)
 
+Statistics on Tags:
+
+    Tag.top_25
+
+... returns the top 25 most used tags across all taggable object classes in the system
+
+    Tag.top_25("Widget")
+
+... returns the top 25 most used tags for Widget objects
+
 
 Future
 ------
@@ -74,6 +84,7 @@ Future
 Thanks To...
 ------------
 - John Nunemaker and the rest of the folks on the MongoMapper Google Group
+- Kyle Banker and his excellent blog posts on grouping and aggregation
 - The MongoDB peoples and the MongoDB Google Group
 - mbleigh for the acts_as_taggable_on plugin for ActiveRecord
 

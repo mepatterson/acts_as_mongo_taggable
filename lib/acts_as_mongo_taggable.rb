@@ -143,6 +143,7 @@ module ActsAsMongoTaggable
     receiver.extend         ClassMethods
     receiver.send :include, InstanceMethods
   end
+
 end
 
 %w{ models observers }.each do |dir|
@@ -151,3 +152,4 @@ end
   ActiveSupport::Dependencies.load_paths << path
   ActiveSupport::Dependencies.load_once_paths.delete(path)
 end
+

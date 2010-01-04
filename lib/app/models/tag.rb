@@ -7,6 +7,7 @@ class Tag
   
   ensure_index :user_id
   ensure_index :taggable_id
+  ensure_index :taggable_class
   ensure_index :word
   
   belongs_to :user
@@ -20,15 +21,16 @@ class Tag
   end
     
   # TO DO this can probably be rewritten to do limits and such in the query
-  def self.all_with_counts(limit = nil)
-    tags = collection.group(['word'], nil, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
+  def self.all_with_counts(limit = nil, klass = nil)
+    cond = klass ? {:taggable_class => klass.to_s} : nil
+    tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
     counts = tags.map{|t| [t['word'], t['count']]}
     set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
     limit.nil? ? set : set[0,limit]
   end
   
-  def self.top_25
-    all_with_counts(25)
+  def self.top_25(klass = nil)
+    all_with_counts(25, klass)
   end
   
   
@@ -63,8 +65,3 @@ module Mongo
       
   end
 end
-
-# not really sure why MM's ensure_index() calls above don't work for this plugin, but I was having trouble, so...
-# MongoMapper.database['tags'].create_index("word")
-# MongoMapper.database['tags'].create_index("user_id")
-# MongoMapper.database['tags'].create_index("taggable_id")
