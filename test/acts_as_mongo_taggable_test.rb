@@ -57,6 +57,12 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     assert_equal 1, @widget.tags.size
   end
   
+  test "tagged_by_user? returns correct value" do
+    assert ! @widget.tagged_by_user?(@tagger)
+    @widget.tag("vampires", @tagger)
+    assert @widget.tagged_by_user?(@tagger)
+  end
+  
   test "tag object can be retrieved after project tagged" do
     assert_equal 0, @widget.tags.size
     @widget.tag("werewolves", @tagger)

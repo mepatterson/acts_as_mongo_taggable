@@ -99,7 +99,7 @@ module ActsAsMongoTaggable
   
   # returns the Rating object found if user has rated this project, else returns nil
   def tagged_by_user?(user)
-    ! tags.blank?
+    Tag.all({:id => taggings, :user_id => user.id}).count > 0
   end
   
   def self.included(receiver)
