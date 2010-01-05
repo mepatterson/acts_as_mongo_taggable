@@ -58,7 +58,7 @@ module ActsAsMongoTaggable
     end
     
     def _tags
-      Tag.all(:id => taggings)
+      Tag.find(:all, taggings)
     end
     
     # returns array of tags and counts: 
