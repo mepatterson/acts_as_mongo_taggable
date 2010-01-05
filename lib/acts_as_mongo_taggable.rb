@@ -27,14 +27,14 @@ module ActsAsMongoTaggable
     def find_with_tag(phrase, opts={})
       phrase = phrase.downcase unless opts[:case_sensitive] == true
       tag = Tag.first({:select => 'taggable_id', :taggable_class => self.to_s, :word => phrase})
-      Widget.first(:id => tag.taggable_id)
+      first(:id => tag.taggable_id)
     end
     
     def find_all_with_tag(phrase, opts={})
       phrase = phrase.downcase unless opts[:case_sensitive] == true
       tags = Tag.all({:select => 'taggable_id', :taggable_class => self.to_s, :word => phrase})
       widget_ids = tags.collect{|t| t.taggable_id}.uniq
-      Widget.all(:id => widget_ids)
+      all(:id => widget_ids)
     end
     
     def most_tagged_with(phrase, opts={})
@@ -45,7 +45,7 @@ module ActsAsMongoTaggable
       counts = Hash.new(0)
       widget_ids.each{|id| counts[id] += 1}
       id = counts.sort{|a,b| a[1] <=> b[1]}.reverse.first[0]
-      Widget.find(id)
+      find(id)
     end
     
   end
