@@ -47,6 +47,12 @@ class Tag
   end
 end
 
+# for some reason the ensure_index lines above don't work in the case of this plugin ??
+Tag.collection.create_index 'taggable_id'
+Tag.collection.create_index 'taggable_class'
+Tag.collection.create_index 'word'
+Tag.collection.create_index [['word',1],['taggable_class',1]]
+
 # 0.18.1 docs claim this method looks like this, but my gem didn't have the 'query' option
 # so I'm adding it directly... should take this out later if the mongo ruby library is updated properly
 module Mongo

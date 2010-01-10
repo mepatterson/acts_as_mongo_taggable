@@ -30,6 +30,13 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     @widget = @owner.widgets.create({:name => "Test Widget"})
   end
   
+  test "widget tagged with the same word multiple times should not have dupes in tag_words" do
+    multi_tag(@widget)
+    assert_equal 3, @widget.tag_words.size
+    @widget.delete_tags_by_user(@m_tagger_1)
+    assert_equal 2, @widget.tag_words.size
+  end
+  
   test "ensure we can actually tag two different object types without collisions" do
     dongle_owner = create_user "dongle_owner"
     dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
@@ -172,10 +179,15 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
   test "delete only tags by certain users" do
     multi_tag(@widget)
     assert_equal 3, @widget.tags.size
+    assert_equal 6, @widget.taggings.size
+
     @widget.delete_tags_by_user(@m_tagger_1)
     assert_equal 2, @widget.tags.size
+    assert_equal 3, @widget.taggings.size
+    
     @widget.delete_tags_by_user(@m_tagger_2)
-    assert_equal 1, @widget.tags.size    
+    assert_equal 1, @widget.tags.size   
+    assert_equal 1, @widget.taggings.size 
   end
   
   test "silently ignore multi-tag by single user with same word using tag()" do

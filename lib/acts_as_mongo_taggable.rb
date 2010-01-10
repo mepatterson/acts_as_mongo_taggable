@@ -26,15 +26,13 @@ module ActsAsMongoTaggable
     # note: case-insensitive unless you specify otherwise with :case_sensitive=>true
     def find_with_tag(phrase, opts={})
       phrase = phrase.downcase unless opts[:case_sensitive] == true
-      tag = Tag.first({:select => 'taggable_id', :taggable_class => self.to_s, :word => phrase})
-      first(:id => tag.taggable_id)
+      first(:tag_words => phrase)
     end
+    
     
     def find_all_with_tag(phrase, opts={})
       phrase = phrase.downcase unless opts[:case_sensitive] == true
-      tags = Tag.all({:select => 'taggable_id', :taggable_class => self.to_s, :word => phrase})
-      widget_ids = tags.collect{|t| t.taggable_id}.uniq
-      all(:id => widget_ids)
+      all(:tag_words => phrase)
     end
     
     def most_tagged_with(phrase, opts={})
@@ -82,10 +80,6 @@ module ActsAsMongoTaggable
       Tag.all(:id => tag_ids_by_user(user)).map(&:word)
     end
     
-    def tag_ids_except_user(user)
-      tags_with_user_ids.reject{|e| e[1] == user.id}.map{|m| m[0]}      
-    end
-    
     # returns only the tag words, sorted by frequency; optionally can be limited
     def tags(limit=nil)
       array = tags_with_counts
@@ -97,9 +91,10 @@ module ActsAsMongoTaggable
   def delete_tags_by_user(user)
     return false unless user
     return 0 if tags.blank?
-    Tag.destroy_all(:id => tag_ids_by_user(user))
-    taggings = tag_ids_except_user(user)
-    save
+    user_taggings = tag_ids_by_user(user)
+    Tag.destroy_all(:id => user_taggings)
+    taggings.delete_if{|t| user_taggings.include?(t) }
+    update_attributes({:taggings => taggings, :tag_words => Tag.find(:all, taggings).collect{|t| t.word}.uniq})
     reload
   end
   
@@ -127,6 +122,7 @@ module ActsAsMongoTaggable
       raise StandardError if Tag.exists?(_tag_conditions(user, word))
       t = Tag.create(_tag_conditions(user, word))
       taggings << t.id
+      tag_words << word unless tag_words.include?(word)
     end
     save
     tags
@@ -139,7 +135,8 @@ module ActsAsMongoTaggable
       word = word.downcase unless opts[:case_sensitive] == true
       unless Tag.exists?(_tag_conditions(user, word))
         t = Tag.create(_tag_conditions(user, word))
-        taggings << t.id 
+        taggings << t.id
+        tag_words << word unless tag_words.include?(word)
       end
     end
     save
@@ -154,6 +151,7 @@ module ActsAsMongoTaggable
   def self.included(receiver)
     receiver.class_eval do
       key :taggings, Array, :index => true # array of Tag ids
+      key :tag_words, Array, :index => true
     end
     receiver.extend         ClassMethods
     receiver.send :include, InstanceMethods
