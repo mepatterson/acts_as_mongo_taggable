@@ -20,6 +20,7 @@ module ActsAsMongoTaggable
               {'count' => 0}, 
               "function(doc, prev) {prev.count += 1}",
               true)
+
       sorted_tag_counts(tags)
     end
     

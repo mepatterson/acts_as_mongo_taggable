@@ -23,7 +23,7 @@ class Tag
   # TO DO this can probably be rewritten to do limits and such in the query
   def self.all_with_counts(limit = nil, klass = nil)
     cond = klass ? {:taggable_class => klass.to_s} : nil
-    tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
+    tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}", true)
     counts = tags.map{|t| [t['word'], t['count']]}
     set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
     limit.nil? ? set : set[0,limit]
@@ -48,26 +48,26 @@ class Tag
 end
 
 # for some reason the ensure_index lines above don't work in the case of this plugin ??
-Tag.collection.create_index 'taggable_id'
-Tag.collection.create_index 'taggable_class'
-Tag.collection.create_index 'word'
-Tag.collection.create_index [['word',1],['taggable_class',1]]
+# Tag.collection.create_index 'taggable_id'
+# Tag.collection.create_index 'taggable_class'
+# Tag.collection.create_index 'word'
+# Tag.collection.create_index [['word',1],['taggable_class',1]]
 
 # 0.18.1 docs claim this method looks like this, but my gem didn't have the 'query' option
 # so I'm adding it directly... should take this out later if the mongo ruby library is updated properly
-module Mongo
-  class Collection
-  
-    # dunno why this isn't the same in my 0.18.1 version of the gem as what the docs say
-    def distinct(key, query=nil)
-      raise MongoArgumentError unless [String, Symbol].include?(key.class)
-      command = OrderedHash.new
-      command[:distinct] = @name
-      command[:key]      = key.to_s
-      command[:query]    = query
-
-      @db.command(command)["values"]
-    end
-      
-  end
-end
+# module Mongo
+#   class Collection
+#   
+#     # dunno why this isn't the same in my 0.18.1 version of the gem as what the docs say
+#     def distinct(key, query=nil)
+#       raise MongoArgumentError unless [String, Symbol].include?(key.class)
+#       command = OrderedHash.new
+#       command[:distinct] = @name
+#       command[:key]      = key.to_s
+#       command[:query]    = query
+# 
+#       @db.command(command)["values"]
+#     end
+#       
+#   end
+# end
