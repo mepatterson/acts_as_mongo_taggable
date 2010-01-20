@@ -18,7 +18,7 @@ module ActsAsMongoTaggable
       tags = Tag.collection.group(['word'], 
               {:taggable_class => self.to_s}, 
               {'count' => 0}, 
-              "function(doc, prev) {prev.count += 1}")
+              "function(doc, prev) {prev.count += 1}", true)
       sorted_tag_counts(tags)
     end
     

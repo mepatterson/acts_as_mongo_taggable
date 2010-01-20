@@ -155,7 +155,7 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
   test "widget returns correct array with multiple tags with 1 count each" do
     %w(vampires werewolves frankenstein).each {|word| @widget.tag(word, @tagger)}
     assert_equal 3, @widget.tags.size
-    assert_equal ["vampires", "werewolves", "frankenstein"], @widget.tags
+    ["vampires", "werewolves", "frankenstein"].each { |t| assert @widget.tags.include?(t) }
   end
 
   test "widget returns correct array with multiple tags with varying counts" do
