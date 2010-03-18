@@ -1,73 +1,102 @@
 class Tag
   include MongoMapper::Document
-  key :user_id,         ObjectId, :required => true
-  key :taggable_class,  String,   :required => true
-  key :taggable_id,     ObjectId, :required => true
-  key :word,            String,   :required => true
+  key :word,            String,   :required => true, :index => true
+  key :taggings_count,   Integer, :index => true
   
-  ensure_index :user_id
-  ensure_index :taggable_id
-  ensure_index :taggable_class
-  ensure_index :word
+  many :taggings do
+    def << (tagging)
+      super << tagging
+      tagging._parent_document.send(:increment_counts, tagging)
+    end
+    
+    def delete(tagging)
+      target.delete tagging
+      tagging._parent_document.send(:decrement_counts, tagging)
+    end
+  end
   
-  belongs_to :user
+  ensure_index 'taggings.user_id'
+  ensure_index 'taggings.taggable_type'
+  ensure_index 'taggings.taggable_id'
+  
+  before_save :set_tagging_counts
+  
+  def self.register_taggable_type(type)
+    key taggings_count_key_for(type), Integer, :index => true
+  end
     
   # == Various Class Methods
   
   # takes a string and produces an array of words from the db that are 'like' this one
   # great for those oh-so-fancy autocomplete/suggestion text fields
-  def self.like(string, klass)
-    collection.distinct(:word, {'word' => /^#{string}.+/, 'taggable_class' => klass.to_s})
+  def self.like(string, klass = nil)
+    opts = {:word => /^#{string}/}
+    opts['taggings.taggable_type'] = klass.to_s if klass
+    all(opts)
   end
-    
-  # TO DO this can probably be rewritten to do limits and such in the query
-  def self.all_with_counts(limit = nil, klass = nil)
-    cond = klass ? {:taggable_class => klass.to_s} : nil
-    tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}", true)
-    counts = tags.map{|t| [t['word'], t['count']]}
-    set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
-    limit.nil? ? set : set[0,limit]
+  
+  def self.all_for_class(klass, opts = {})
+    all(opts.merge('taggings.taggable_type' => klass.to_s))
+  end
+  
+  def self.most_tagged(klass = nil, opts = {})
+    order = klass ?  "#{taggings_count_key_for(klass)} desc" : 'taggings_count desc'
+    lo = opts.merge(:order => order)
+    lo['taggings.taggable_type'] = klass.to_s if klass
+    all(lo)
   end
   
   def self.top_25(klass = nil)
-    all_with_counts(25, klass)
+    most_tagged(klass, :limit => 25)
   end
   
-  
-  # == Various Instance Methods   
-  def find_tagged_document
-    klass = taggable_class.constantize
-    klass.find(taggable_id.to_s)
+  def count_for(klass = nil)
+    klass ? send(taggings_count_key_for(klass)) : taggings_count
   end
   
-  def find_tagged_document!
-    doc = find_tagged_document
-    raise "Associated document not found" if doc.nil?
-    doc
+  #Called when removing taggings.  If no taggings left, destroy, otherwise save
+  def save_or_destroy
+    taggings.empty? ? destroy : save
+  end
+  
+private
+  def set_tagging_counts
+    self.taggings_count = self.taggings.size
+    
+    count_hash = self.taggings.inject({}) do |hash, tagging|
+      key = taggings_count_key_for(tagging.taggable_type)
+      hash[key] ||= 0
+      hash[key] += 1
+      hash
+    end
+    count_hash.each{|key, count| self.send("#{key}=", count)}
+  end
+
+  def increment_counts(tagging)
+    safe_increment_count(:taggings_count)
+    safe_increment_count(taggings_count_key_for(tagging.taggable_type))
+  end
+  
+  def decrement_counts(tagging)
+    safe_decrement_count(:taggings_count)
+    safe_decrement_count(taggings_count_key_for(tagging.taggable_type))
+  end
+  
+  def taggings_count_key_for(type)
+    Tag.taggings_count_key_for(type)
+  end
+  
+  def safe_increment_count(key)
+    val = self.send(key) || 0
+    self.send("#{key}=", val + 1)
+  end
+  
+  def safe_decrement_count(key)
+    self.send("#{key}=", self.send("#{key}") - 1) if self.send("#{key}")
+  end
+  
+  def self.taggings_count_key_for(type)
+    type = type.name if type.is_a? Class
+    :"#{type.underscore}_taggings_count"
   end
 end
-
-# for some reason the ensure_index lines above don't work in the case of this plugin ??
-# Tag.collection.create_index 'taggable_id'
-# Tag.collection.create_index 'taggable_class'
-# Tag.collection.create_index 'word'
-# Tag.collection.create_index [['word',1],['taggable_class',1]]
-
-# 0.18.1 docs claim this method looks like this, but my gem didn't have the 'query' option
-# so I'm adding it directly... should take this out later if the mongo ruby library is updated properly
-# module Mongo
-#   class Collection
-#   
-#     # dunno why this isn't the same in my 0.18.1 version of the gem as what the docs say
-#     def distinct(key, query=nil)
-#       raise MongoArgumentError unless [String, Symbol].include?(key.class)
-#       command = OrderedHash.new
-#       command[:distinct] = @name
-#       command[:key]      = key.to_s
-#       command[:query]    = query
-# 
-#       @db.command(command)["values"]
-#     end
-#       
-#   end
-# end

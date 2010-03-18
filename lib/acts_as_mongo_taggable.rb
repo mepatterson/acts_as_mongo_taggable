@@ -1,85 +1,80 @@
 module ActsAsMongoTaggable
   module ClassMethods
-    
-    
-    # cond = klass ? {:taggable_class => klass.to_s} : nil
-    # tags = collection.group(['word'], cond, {'count' => 0}, "function(doc, prev) {prev.count += 1}")
-    # counts = tags.map{|t| [t['word'], t['count']]}
-    # set = counts.sort{|a,b| a[1] <=> b[1]}.reverse
-    # limit.nil? ? set : set[0,limit]
-    
-    def sorted_tag_counts(tags)
-      counts = tags.map{|t| [t['word'], t['count'].to_i]}
-      counts.sort{|a,b| a[1] <=> b[1]}.reverse
-    end
-    
     def all_tags_with_counts
-      counts = Hash.new(0)
-      tags = Tag.collection.group(['word'], 
-              {:taggable_class => self.to_s}, 
-              {'count' => 0}, 
-              "function(doc, prev) {prev.count += 1}",
-              true)
-
-      sorted_tag_counts(tags)
+      Tag.most_tagged(self).map{|tag| [tag.word, tag.count_for(self)]}
     end
     
     # returns the _first_ widget with this tag, a la ActiveRecord find()
     # note: case-insensitive unless you specify otherwise with :case_sensitive=>true
-    def find_with_tag(phrase, opts={})
-      phrase = phrase.downcase unless opts[:case_sensitive] == true
-      first(:tag_words => phrase)
+    def first_with_tag(phrase, opts={})
+      lo = opts.clone
+      case_sensitive = lo.delete :case_sensitive
+      phrase = phrase.downcase unless case_sensitive
+      first(lo.merge(:tag_words => phrase))
     end
     
     
-    def find_all_with_tag(phrase, opts={})
-      phrase = phrase.downcase unless opts[:case_sensitive] == true
-      all(:tag_words => phrase)
+    def all_with_tag(phrase, opts={})
+      lo = opts.clone
+      case_sensitive = lo.delete :case_sensitive
+      phrase = phrase.downcase unless case_sensitive
+      all(lo.merge(:tag_words => phrase))
     end
     
     def most_tagged_with(phrase, opts={})
-      phrase = phrase.downcase unless opts[:case_sensitive] == true
-      tags = Tag.all({:select => 'taggable_id', :taggable_class => self.to_s, :word => phrase})
-      widget_ids = tags.collect{|t| t.taggable_id}
-      return [] if widget_ids.empty?
-      counts = Hash.new(0)
-      widget_ids.each{|id| counts[id] += 1}
-      id = counts.sort{|a,b| a[1] <=> b[1]}.reverse.first[0]
-      find(id)
+      lo = opts.clone
+      case_sensitive = lo.delete :case_sensitive
+      phrase = phrase.downcase unless case_sensitive
+      
+      #Doesn't work :(
+      #first(lo.merge('model_tags.word' => phrase, :order => 'model_tags.tagging_count desc'))
+      
+      all_with_tag(phrase, lo).sort do |a, b|
+        b.model_tag(phrase, opts).tagging_count <=> a.model_tag(phrase, opts).tagging_count
+      end.first
     end
     
+    def top_25_tags
+      Tag.top_25(self)
+    end
   end
   
   module InstanceMethods
     
     def delete_all_tags
-      Tag.destroy_all(:id => taggings)
-      update_attributes({ :taggings => [] })
+      Tag.find(tag_ids).each do |tag|
+        model_taggings = tag.taggings.select{|tagging| tagging.taggable_type == self.class.name && tagging.taggable_id == self.id}
+        model_taggings.each{|tagging| tag.taggings.delete tagging}
+        tag.save_or_destroy
+      end
+      update_attributes({ :model_tags => [], :tag_words => [] })
     end
     
     def _tags
-      Tag.find(:all, taggings)
+      Tag.find(:all, tag_ids)
     end
     
     # returns array of tags and counts: 
     #   [["matt", 3], ["bob", 2], ["bill", 1], ["joe", 1], ["frank", 1]]
     def tags_with_counts
-      counts = Hash.new(0)
-      Tag.all(:id => taggings, :select => 'word').collect(&:word).each{|val|counts[val]+=1}
-      counts.sort{|a,b| a[1] <=> b[1]}.reverse
+      counts = model_tags.map{|tag| [tag.word, tag.tagging_count]}
+      counts.sort{|a, b| b[1] <=> a[1]}
     end
     
     # returns an array of ids and user_ids
     def tags_with_user_ids
-      _tags.collect{|t| [t.id, t.user_id] }
-    end
-    
-    def tag_ids_by_user(user)
-      tags_with_user_ids.select{|e| e[1] == user.id}.map{|m| m[0]}
+      model_tags.inject([]) do |arr, tag|
+        tag.user_ids.each{|user_id| arr << [tag.id, user_id]}
+        arr
+      end
     end
     
     def tag_words_by_user(user)
-      Tag.all(:id => tag_ids_by_user(user)).map(&:word)
+      tags_by_user(user).map(&:word)
+    end
+    
+    def tags_by_user(user)
+      model_tags.select{|tag| tag.user_ids.include? user.id}
     end
     
     # returns only the tag words, sorted by frequency; optionally can be limited
@@ -88,15 +83,33 @@ module ActsAsMongoTaggable
       limit ||= array.size
       array[0,limit].map{|t| t[0]}
     end
+    
+    def model_tag(phrase, opts = {})
+      phrase = phrase.downcase unless opts[:case_sensitive]
+      model_tags.detect{|tag| tag.word == phrase}
+    end
+    
+    def tag_ids
+      model_tags.map(&:tag_id)
+    end
   end
   
   def delete_tags_by_user(user)
     return false unless user
-    return 0 if tags.blank?
-    user_taggings = tag_ids_by_user(user)
-    Tag.destroy_all(:id => user_taggings)
-    taggings.delete_if{|t| user_taggings.include?(t) }
-    update_attributes({:taggings => taggings, :tag_words => Tag.find(:all, taggings).collect{|t| t.word}.uniq})
+    return 0 if model_tags.blank?
+    user_tags = tags_by_user(user)
+    
+    Tag.find(user_tags.map(&:tag_id)).each do |tag|
+      user_taggings = tag.taggings.select{|tagging| tagging.user_id == user.id && tagging.taggable_type == self.class.name && tagging.taggable_id == self.id}
+      user_taggings.each{|tagging| tag.taggings.delete tagging}
+      tag.save_or_destroy
+    end
+    
+    user_tags.each do |tag| 
+      tag.users.delete user
+      destroy_if_empty(tag)
+    end
+    save
     reload
   end
   
@@ -109,24 +122,26 @@ module ActsAsMongoTaggable
     end
   end
   
-  
-  def _tag_conditions(user, word)
-    { :user_id => user.id, 
-      :taggable_id => self.id,
-      :taggable_class => self.class.to_s,
-      :word => word 
-    }
-  end
-  
   # returns my current tag word list; raises exception if user tries to multi-tag with same word
   def tag!(word_or_words, user)
     arr_of_words(word_or_words).each do |word|
-      raise StandardError if Tag.exists?(_tag_conditions(user, word))
-      t = Tag.create(_tag_conditions(user, word))
-      taggings << t.id
-      tag_words << word unless tag_words.include?(word)
+      raise StandardError if tag_words_by_user(user).include?(word)
+      
+      #First add Tag/Tagging
+      t = Tag.first(:word => word) || Tag.create!(:word => word)
+      t.taggings << Tagging.new(:user => user, :taggable => self)
+      t.save!
+      
+      #Now add ModelTag/User/tag_word
+      model_tag = model_tags.detect{|tag| tag.word == word}
+      unless model_tag
+        model_tag = ModelTag.new(:word => word, :tag => t)
+        self.model_tags << model_tag
+        self.tag_words << word
+      end
+      model_tag.users << user
     end
-    save
+    save!
     tags
   end
   
@@ -135,10 +150,20 @@ module ActsAsMongoTaggable
   def tag(word_or_words, user, opts={})
     arr_of_words(word_or_words).each do |word|
       word = word.downcase unless opts[:case_sensitive] == true
-      unless Tag.exists?(_tag_conditions(user, word))
-        t = Tag.create(_tag_conditions(user, word))
-        taggings << t.id
-        tag_words << word unless tag_words.include?(word)
+      unless tag_words_by_user(user).include?(word)
+        #First add Tag/Tagging
+        t = Tag.first(:word => word) || Tag.create!(:word => word)
+        t.taggings << Tagging.new(:user => user, :taggable => self)
+        t.save
+      
+        #Now add ModelTag/User/tag_word
+        model_tag = model_tags.detect{|tag| tag.word == word}
+        unless model_tag
+          model_tag = ModelTag.new(:word => word, :tag => t)
+          self.model_tags << model_tag
+          self.tag_words << word
+        end
+        model_tag.users << user
       end
     end
     save
@@ -147,16 +172,29 @@ module ActsAsMongoTaggable
   
   # returns the Rating object found if user has rated this project, else returns nil
   def tagged_by_user?(user)
-    Tag.all({:id => taggings, :user_id => user.id}).count > 0
+    !(model_tags.detect{|tag| tag.user_ids.include?(user.id)}.nil?)
   end
   
   def self.included(receiver)
     receiver.class_eval do
-      key :taggings, Array, :index => true # array of Tag ids
       key :tag_words, Array, :index => true
+      many :model_tags
+      
+      ensure_index 'model_tags.word'
+      ensure_index 'model_tags.tagging_count'
     end
     receiver.extend         ClassMethods
     receiver.send :include, InstanceMethods
+    
+    Tag.register_taggable_type receiver
+  end
+  
+private
+  def destroy_if_empty(tag)
+    if tag.user_ids.empty?
+      tag_words.delete(tag.word)
+      model_tags.delete tag
+    end
   end
 
 end

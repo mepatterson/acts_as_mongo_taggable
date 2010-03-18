@@ -1,12 +1,19 @@
 require 'rubygems'
 require 'active_support'
 require 'active_support/test_case'
-
-ENV['RAILS_ENV'] = 'test'
-ENV['RAILS_ROOT'] ||= File.dirname(__FILE__) + '/../../../..'
-
 require 'test/unit'
-require File.expand_path(File.join(ENV['RAILS_ROOT'], 'config/environment.rb'))
+
+ENV['RAILS_ROOT'] ||= File.dirname(__FILE__) + '/../../../..'
+env_rb = File.expand_path(File.join(ENV['RAILS_ROOT'], 'config/environment.rb'))
+
+if File.exists? env_rb
+  require env_rb
+else
+  require 'mongo_mapper'
+  require File.dirname(__FILE__) + '/../lib/acts_as_mongo_taggable'
+  config = {'test' => {'database' => 'aamt-test'}}
+  MongoMapper.setup(config, 'test')
+end
 
 class ActiveSupport::TestCase
   # Drop all columns after each test case.

@@ -59,15 +59,15 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
   end
   
   test "search and find all widgets containing a specified tag" do
-    num_found = Widget.find_all_with_tag('vampires').size
+    num_found = Widget.all_with_tag('vampires').size
     assert_equal 0, num_found
     @widget.tag("vampires", @tagger)
-    num_found = Widget.find_all_with_tag('vampires').size
+    num_found = Widget.all_with_tag('vampires').size
     assert_equal 1, num_found
     dongle_owner = create_user "dongle_owner"
     dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
     multi_tag(dongle)
-    num_found = Widget.find_all_with_tag('vampires').size
+    num_found = Widget.all_with_tag('vampires').size
     # should only be 1 because we're only searching on Widgets!
     assert_equal 1, num_found
   end
@@ -77,23 +77,23 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
     dongle_owner = create_user "dongle_owner"
     dongle = dongle_owner.dongles.create({:name => "Test Dongle"})
     # should only be 1 because we're only searching on Widgets!
-    assert_equal 1, Widget.find_all_with_tag('vampires').size
-    assert_equal @widget, Widget.find_with_tag('vampires')
+    assert_equal 1, Widget.all_with_tag('vampires').size
+    assert_equal @widget, Widget.first_with_tag('vampires')
   end
   
-  test "find_all_with_tag and find_with_tag are case-insensitive" do
+  test "all_with_tag and first_with_tag are case-insensitive" do
     @widget.tag("VaMpiReS", @tagger)
     @widget.tag("VAMPIRES", @tagger)
-    assert_equal @widget, Widget.find_with_tag("VampireS")
-    assert_equal 1, Widget.find_all_with_tag("VampireS").size
+    assert_equal @widget, Widget.first_with_tag("VampireS")
+    assert_equal 1, Widget.all_with_tag("VampireS").size
   end
   
   test "case-sensitive mode" do
     @widget.tag("VaMpiReS", @tagger, {:case_sensitive => true})
-    assert_equal 0, Widget.find_all_with_tag("vampires").size
-    assert_equal 0, Widget.find_all_with_tag("VaMpiReS").size
-    assert_equal 0, Widget.find_all_with_tag("vampires", {:case_sensitive => true}).size
-    assert_equal 1, Widget.find_all_with_tag("VaMpiReS", {:case_sensitive => true}).size
+    assert_equal 0, Widget.all_with_tag("vampires").size
+    assert_equal 0, Widget.all_with_tag("VaMpiReS").size
+    assert_equal 0, Widget.all_with_tag("vampires", {:case_sensitive => true}).size
+    assert_equal 1, Widget.all_with_tag("VaMpiReS", {:case_sensitive => true}).size
   end
   
   test "we get an empty array if we ask for all tags with counts and there are none" do
@@ -179,15 +179,15 @@ class ActsAsMongoTaggableTest < ActiveSupport::TestCase
   test "delete only tags by certain users" do
     multi_tag(@widget)
     assert_equal 3, @widget.tags.size
-    assert_equal 6, @widget.taggings.size
+    assert_equal 6, @widget.model_tags.inject(0){|r, tag| r + tag.tagging_count}
 
     @widget.delete_tags_by_user(@m_tagger_1)
     assert_equal 2, @widget.tags.size
-    assert_equal 3, @widget.taggings.size
+    assert_equal 3, @widget.model_tags.inject(0){|r, tag| r + tag.tagging_count}
     
     @widget.delete_tags_by_user(@m_tagger_2)
     assert_equal 1, @widget.tags.size   
-    assert_equal 1, @widget.taggings.size 
+    assert_equal 1, @widget.model_tags.inject(0){|r, tag| r + tag.tagging_count}
   end
   
   test "silently ignore multi-tag by single user with same word using tag()" do
