@@ -96,7 +96,12 @@ private
   end
   
   def self.taggings_count_key_for(type)
-    type = type.name if type.is_a? Class
+    type = type.constantize if type.is_a? String
+    #check for inheritance, get most superclass with include
+    while type.superclass && type.superclass.include?(ActsAsMongoTaggable)
+      type = type.superclass
+    end
+    type = type.name
     :"#{type.underscore}_taggings_count"
   end
 end
