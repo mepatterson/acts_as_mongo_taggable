@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{acts_as_mongo_taggable}
-  s.version = "0.1.0"
+  s.version = "0.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Matt E. Patterson"]
-  s.date = %q{2010-03-19}
+  s.date = %q{2010-03-22}
   s.description = %q{A ruby gem for acts_as_taggable to mongo}
   s.email = %q{mpatterson@ngenera.com}
   s.extra_rdoc_files = [
@@ -27,7 +27,7 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/mepatterson/acts_as_mongo_taggable}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.5}
+  s.rubygems_version = %q{1.3.6}
   s.summary = %q{A ruby gem for acts_as_taggable to mongo}
   s.test_files = [
     "test/acts_as_mongo_taggable_test.rb",
