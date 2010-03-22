@@ -83,6 +83,7 @@ Future
 
 Thanks To...
 ------------
+- Jon Bell for some sweet refactorings and gem-ification
 - John Nunemaker and the rest of the folks on the MongoMapper Google Group
 - Kyle Banker and his excellent blog posts on grouping and aggregation
 - The MongoDB peoples and the MongoDB Google Group
