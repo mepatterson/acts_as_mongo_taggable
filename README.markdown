@@ -15,11 +15,21 @@ Requirements
 Installation
 ------------
 
-Install the plugin:
+Best practice -- install the gem:
+
+    gem install acts_as_mongo_taggable
+
+… and add a line to your environment.rb:
+
+    config.gem 'acts_as_mongo_taggable'
+
+
+or, if you're old-school, install as a plugin:
         
     ./script/plugin install git://github.com/mepatterson/acts_as_mongo_taggable.git
 
-Add this line to the Rails model class that you want to make taggable:
+
+Finally, add this line to the Rails model class that you want to make taggable:
 
     include ActsAsMongoTaggable
 
